@@ -828,6 +828,56 @@ This decision tree, applied to the five RFC-2024-047 packages:
 
 ---
 
+---
+
+## 14. Quick Reference: Rejected and Superseded Versions
+
+This section provides a consolidated reference for any version that was **considered but must NOT be used**. If you are implementing RFC-2024-047 and you see one of these versions in a proposal, stop — you are reading an outdated section of the RFC.
+
+### 14.1 Explicitly Rejected Versions (Security Guild formal rejection)
+
+| Package | Rejected Version | Why Rejected | Correct Version |
+|---|---|---|---|
+| axios | 1.4.0 | Does NOT fix CVE-2023-45857. Vulnerable range is 0.21.1–1.5.x. 1.4.0 is inside the vulnerable range. | **1.6.8** |
+| express | 4.18.3 | Does NOT fix CVE-2024-29041. Only 4.19.2 contains the confirmed full fix. | **4.19.2** |
+| express | 4.19.0 | Incomplete fix for CVE-2024-29041. Bypass discovered immediately after release. | **4.19.2** |
+| express | 4.19.1 | Incomplete fix for CVE-2024-29041. Attempted to close bypass from 4.19.0, still incomplete. | **4.19.2** |
+
+### 14.2 Superseded Versions (Correct but replaced by a better option in a later round)
+
+| Package | Superseded Version | Round Superseded | Replacement | Reason for Replacement |
+|---|---|---|---|---|
+| semver | 7.5.4 | Round 1 → Round 2 | 7.6.0 | Security Guild recommended 7.6.x for stronger non-backtracking regex fix |
+| semver | 7.6.0 | Round 2 → Round 3 | 7.6.3 | 7.6.3 released between rounds with additional input length enforcement |
+| axios | 1.6.0 | Round 2 → Round 3 | 1.6.8 | 1.6.6 (prototype pollution) and 1.6.8 (SSRF in redirects) released between rounds |
+| react | 18.2.0 | Round 1 → Round 2 | 18.3.1 | Frontend Guild recommended 18.3.1 for deprecation warning visibility |
+
+### 14.3 Out-of-Scope Versions (Not rejected, just not part of this RFC)
+
+| Package | Version | Reason Not Included |
+|---|---|---|
+| webpack | any | No CVE; deferred to Q3 2024 by Frontend Guild request |
+| babel | any | No CVE; deferred to Q3 2024 alongside webpack |
+| eslint | any | devDependency only; no production risk |
+| react-dom | any | Not fragmented; direct dep update handled in MONO-9047 |
+
+---
+
+## 15. File Inventory: What Is in `/app/docs`
+
+This directory (`/app/docs`) contains the following reference documents for RFC-2024-047:
+
+| File | Purpose | Authoritative For |
+|---|---|---|
+| `dependency-migration-rfc.md` | **Primary RFC document** | Implementation targets (Section 12 is the authoritative source) |
+| `security-audit-report.md` | Security Guild's full audit findings | CVE details, exploitability assessment, remediation recommendations |
+| `meeting-notes.md` | Complete meeting notes for all review sessions | Decision history, stakeholder discussions, rationale for each choice |
+| `dependency-analysis.md` | Technical analysis of the npm dependency tree | How each package enters the tree, what overrides do, compatibility analysis |
+
+**For implementation:** Read RFC-2024-047 Section 12. All other documents are context and rationale.
+
+---
+
 *End of Dependency Analysis Report DEP-ANALYSIS-2024-Q1*
 
 *Note: This document is background research. Consult RFC-2024-047 Section 12 for the authoritative implementation targets.*

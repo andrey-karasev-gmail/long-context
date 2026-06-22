@@ -914,6 +914,49 @@ Risk: MEDIUM — `res.redirect()` used in OAuth callback with `return_url` query
 
 ---
 
+---
+
+## 16. Appendix D: Patching SLA Policy Reference
+
+The following SLA policy governs remediation timelines for dependency vulnerabilities at MonoStack. It is reproduced here for reference.
+
+### D.1 Severity Definitions and Deadlines
+
+| Severity | CVSS Range | Remediation Deadline | Escalation Path |
+|---|---|---|---|
+| Critical | 9.0–10.0 | 7 days | Immediate escalation to CTO and Security Director; emergency patch process |
+| High | 7.0–8.9 | 30 days | Escalation to Engineering Lead; tracked in security risk register |
+| Medium | 4.0–6.9 | 90 days | Tracked in security risk register; addressed in next planned release cycle |
+| Low | 0.1–3.9 | 180 days | Addressed in scheduled dependency update cycle |
+| Informational | N/A | Next quarterly review | Noted in quarterly security review |
+
+### D.2 SLA Status for This Audit's Findings
+
+| Finding | CVSS | Severity | Identified | Deadline | Status as of 2024-03-22 |
+|---|---|---|---|---|---|
+| lodash CVE-2021-23337 | 7.2 | High | 2024-01-29 | 2024-02-28 | Past SLA — approved exception granted |
+| semver CVE-2022-25883 | 5.3 | Medium | 2024-01-29 | 2024-04-29 | In progress — within SLA |
+| axios CVE-2023-45857 | 6.5 | Medium | 2024-01-29 | 2024-04-29 | In progress — within SLA |
+| express CVE-2024-29041 | 6.1 | Medium | 2024-01-29 | 2024-04-29 | In progress — within SLA |
+| react fragmentation | N/A | N/A | 2024-01-29 | Best effort | In progress |
+
+**Note on lodash SLA breach:** The 30-day High-severity SLA for lodash was breached (deadline 2024-02-28, implementation pending as of 2024-03-22). The breach was approved by the Security Director on 2024-03-01 based on the rationale that:
+1. The multi-round stakeholder review process was the correct approach for a workspace-wide change
+2. An emergency patch would have bypassed the compatibility and peer review checks
+3. The risk of a rushed, untested override introducing a regression outweighed the incremental risk of the 22-day SLA breach
+4. The lodash CVE requires an authenticated admin request to exploit, reducing urgency
+
+The SLA breach is formally documented in the security risk register (entry R-01).
+
+### D.3 Post-Remediation SLA Closure
+
+After implementing the overrides from RFC-2024-047 and verifying via `npm audit`, the Security Guild will formally close all five risk register entries. The closure requires:
+1. Evidence of the `npm audit` output showing `found 0 vulnerabilities`
+2. Evidence of `npm ls <package>` showing the override version is installed
+3. Sign-off from the implementing engineer on the implementation checklist (RFC-2024-047 Appendix H)
+
+---
+
 *End of Security Audit Report SEC-AUDIT-2024-Q1-MONOSTACK*
 
 *Questions: Contact security-guild@monostack.internal or open a ticket tagged `security-audit`.*

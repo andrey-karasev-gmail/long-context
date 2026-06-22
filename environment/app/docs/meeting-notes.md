@@ -698,6 +698,141 @@ All key decisions made during the RFC process are summarized here for quick refe
 
 ---
 
+---
+
+## Appendix: Background — npm Overrides Mechanism Deep Dive
+
+This section was produced by T. Bergström as research material for the team before the M-01 kickoff meeting. It explains the npm `overrides` mechanism for team members unfamiliar with it.
+
+### Background-1: What Problem Do Overrides Solve?
+
+In a large JavaScript project, your direct dependencies (the packages you explicitly listed) each bring their own dependencies. Those packages bring more dependencies. By the time npm finishes resolving the full tree, you may have hundreds of packages installed — only a fraction of which you directly chose.
+
+When a security vulnerability is found in a transitive package (one you didn't directly choose), fixing it is surprisingly hard without the overrides mechanism:
+
+**Option A: Wait for your direct dependency to patch it**
+If your package `foo@1.0.0` depends on vulnerable `bar@1.0.0`, you need `foo`'s authors to:
+1. Become aware of the vulnerability
+2. Update their dependency on `bar`
+3. Publish a new version of `foo`
+4. You update your dependency on `foo`
+
+This can take weeks or months. The `foo` authors may not prioritize it. If `foo` is abandoned, it may never happen.
+
+**Option B: Force-patch it yourself using npm overrides**
+Add to your root `package.json`:
+```json
+{
+  "overrides": {
+    "bar": "1.0.1"
+  }
+}
+```
+Now, regardless of what `foo` requests for `bar`, your workspace will use `bar@1.0.1`. You control the resolution without needing upstream cooperation.
+
+### Background-2: How npm Resolves With Overrides
+
+When npm resolves the dependency tree, it applies overrides at resolution time — before installation. The algorithm:
+
+1. Build the normal dependency graph (ignoring overrides)
+2. For each node in the graph, check if its package name matches an override key
+3. If it matches, substitute the override version for the requested version
+4. Check that the substituted version satisfies the requester's version range
+   - If it does: proceed
+   - If it doesn't: npm warns but proceeds (the override takes priority)
+5. Deduplicate the resulting tree — all packages that were forced to the same version by an override can now be hoisted to a single location
+6. Install the final tree
+
+Step 4 is important: if your override specifies a version that doesn't satisfy the requester's range (e.g., overriding `react@^16.x` to `react@18.3.1`), npm will warn but still apply the override. For the five overrides in RFC-2024-047, all override versions satisfy the existing requester ranges (see RFC-2024-047 Appendix C).
+
+### Background-3: Overrides vs. resolutions (yarn) vs. overrides (pnpm)
+
+The `overrides` field is npm's implementation. Yarn and pnpm have analogous mechanisms:
+
+| Tool | Mechanism | Config Field |
+|---|---|---|
+| npm ≥7 | overrides | `"overrides": {}` in root `package.json` |
+| yarn classic (1.x) | resolutions | `"resolutions": {}` in root `package.json` |
+| yarn berry (2+) | resolutions | `"resolutions": {}` in root `package.json` |
+| pnpm | overrides | `"pnpm": {"overrides": {}}` in root `package.json` |
+
+MonoStack uses npm workspaces (not yarn or pnpm), so `"overrides"` in the root `package.json` is the correct mechanism.
+
+**Warning:** If MonoStack ever migrates to pnpm, the overrides would need to be moved to the `pnpm.overrides` field. The npm-style `overrides` field at the root level is ignored by pnpm.
+
+### Background-4: Override Targeting (Scoped Overrides)
+
+npm supports more fine-grained override targeting for cases where you want to override a transitive dependency only when required by a specific parent package. The syntax:
+
+```json
+{
+  "overrides": {
+    "package-that-requires-vulnerable-dep": {
+      "vulnerable-dep": "fixed-version"
+    }
+  }
+}
+```
+
+For example, to override `lodash` only when required by `data-processor`:
+```json
+{
+  "overrides": {
+    "data-processor": {
+      "lodash": "4.17.21"
+    }
+  }
+}
+```
+
+RFC-2024-047 uses flat (unscoped) overrides because:
+1. The vulnerable packages are used by multiple dependents
+2. There's no reason to allow the vulnerable version anywhere in the tree
+3. Scoped overrides add complexity without benefit when the flat override is appropriate
+
+Scoped overrides are useful when an upgrade would break one specific consumer but not others — not the case here.
+
+### Background-5: Override Limitations and Edge Cases
+
+**Overrides don't affect the package that declares the override:**
+If your root `package.json` declares `"dependencies": {"lodash": "^4.17.0"}` AND `"overrides": {"lodash": "4.17.21"}`, the override does NOT affect your own direct dependency resolution. Your direct `lodash` dependency will resolve normally (to `4.17.21` if that's the latest satisfying `^4.17.0`). The override affects how npm resolves `lodash` when requested by your dependencies and their dependencies.
+
+In MonoStack's case, no package in the workspace declares `lodash` as a direct dependency — it's entirely transitive — so this limitation is irrelevant.
+
+**Overrides can break things if the version is incompatible:**
+If you override a package to a version that introduces breaking changes for a package that depends on it, you'll see runtime errors even though `npm install` succeeds. The override mechanism is powerful but requires care. This is why RFC-2024-047 conducts compatibility analysis (Section 7) and verifies that all override versions satisfy existing peer dependency requirements (Appendix C).
+
+**Overrides don't modify package.json files of sub-packages:**
+The override only changes what gets installed in `node_modules`. It doesn't modify the `package.json` of `data-processor` or any other package. If `data-processor@2.1.0` is published with `"lodash": "^4.17.0"` in its dependencies, that remains unchanged. The override is purely a workspace-level resolution instruction.
+
+**Overrides persist until explicitly removed:**
+Unlike `npm update` (which updates dependencies within declared ranges), overrides are static configuration. They apply indefinitely until removed from `package.json`. This is the desired behavior for security overrides — they should stay in place until the root cause (the upstream dependency declaring the old version) is addressed and the override is no longer necessary.
+
+---
+
+## Appendix: Glossary
+
+| Term | Definition |
+|---|---|
+| CVE | Common Vulnerabilities and Exposures. A numbered identifier for a specific, publicly known security vulnerability. Example: CVE-2021-23337. |
+| CVSS | Common Vulnerability Scoring System. A numerical score (0–10) indicating vulnerability severity. 7.0–8.9 = High, 4.0–6.9 = Medium, 0.1–3.9 = Low. |
+| CWE | Common Weakness Enumeration. A categorization of software weaknesses. Example: CWE-1321 (Prototype Pollution). |
+| Prototype Pollution | A class of JavaScript vulnerability where an attacker can set properties on `Object.prototype`, affecting all objects in the runtime. |
+| ReDoS | Regular Expression Denial of Service. An attack where a crafted input causes a regex to take exponential time to evaluate, blocking the event loop. |
+| SSRF | Server-Side Request Forgery. An attack where a server is tricked into making HTTP requests to internal or unintended external resources. |
+| XSRF / CSRF | Cross-Site Request Forgery. An attack where a user is tricked into submitting a request to a site they're authenticated to, using their existing session. |
+| transitive dependency | A package that is installed because it is required by one of your direct dependencies (or their dependencies). You didn't directly choose it. |
+| direct dependency | A package explicitly listed in your `package.json` `dependencies` or `devDependencies`. |
+| hoisting | npm's behavior of placing a single copy of a package in the root `node_modules` when possible, rather than nested copies in each consuming package's `node_modules`. |
+| npm overrides | A mechanism in npm 7+ that allows a workspace root to specify exact versions for any package in the dependency tree, overriding normal resolution. |
+| workspace | An npm feature for managing multiple packages in a single repository. Defined by the `workspaces` field in the root `package.json`. |
+| lockfile | `package-lock.json` (npm), `yarn.lock` (yarn), `pnpm-lock.yaml` (pnpm). A file that records the exact resolved versions of all installed packages for reproducible installs. |
+| package-lock.json | npm's lockfile. Records the full resolved dependency tree with exact versions and integrity hashes. Must be committed to version control and regenerated after any dependency change. |
+| SLA | Service Level Agreement. In this context, the maximum time allowed between identifying a vulnerability and implementing a fix. High severity: 30 days. Medium severity: 90 days. |
+| RFC | Request for Comments. A document proposing a change, circulated for stakeholder review before implementation. RFC-2024-047 is this document's reference ID. |
+
+---
+
 *End of Meeting Notes for RFC-2024-047*
 
 *Maintained by: Platform Team. For questions or corrections, contact J. Hartwell or open a ticket in the MonoStack project.*
