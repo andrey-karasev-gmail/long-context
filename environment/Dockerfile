@@ -6,10 +6,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --no-cache-dir --break-system-packages \
-    asciinema==2.4.0 \
-    pytest==8.4.1 \
-    pytest-json-ctrf==0.3.5
+COPY requirements.lock /tmp/requirements.lock
+RUN pip3 install --no-cache-dir --break-system-packages --require-hashes -r /tmp/requirements.lock
 
 WORKDIR /app
 
