@@ -12,7 +12,7 @@ if [ "$PWD" = "/" ]; then
 fi
 
 # Run tests
-python -m pytest -o cache_dir=/tmp/pytest_cache \
+python3 -m pytest -o cache_dir=/tmp/pytest_cache \
   --ctrf /logs/verifier/ctrf.json /tests/test_outputs.py -rA
 RC=$?
 if [ "$RC" -eq 0 ]; then
