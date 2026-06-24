@@ -14,6 +14,10 @@ on:
         description: "Send to reviewer after evaluation"
         type: boolean
         default: true
+      dry_run:
+        description: "Dry run (package ZIP without uploading)"
+        type: boolean
+        default: false
 
 jobs:
   submit:
@@ -34,6 +38,9 @@ jobs:
           if [ "${{ inputs.send_to_reviewer }}" = "false" ]; then
             FLAG="--no-send-to-reviewer"
           fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            FLAG="$FLAG --dry-run"
+          fi
 
           if [ -f ".snorkel_config" ]; then
             stb submissions update . --time ${{ inputs.time }} $FLAG
@@ -42,5 +49,5 @@ jobs:
               echo "ERROR: .snorkel_config not found and no project name provided."
               exit 1
             fi
-            stb submissions create . --project-name "${{ inputs.project }}" --time ${{ inputs.time }}
+            stb submissions create . --project-name "${{ inputs.project }}" --time ${{ inputs.time }} $FLAG
           fi
