@@ -1,0 +1,46 @@
+name: Submit to Snorkel
+
+on:
+  workflow_dispatch:
+    inputs:
+      time:
+        description: "Time spent on task (minutes)"
+        required: true
+        default: "0"
+      project:
+        description: "Snorkel project name (required for first submission; ignored if .snorkel_config exists)"
+        required: false
+      send_to_reviewer:
+        description: "Send to reviewer after evaluation"
+        type: boolean
+        default: true
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Install STB
+        run: uv tool install snorkelai-stb --find-links https://snorkel-python-wheels.s3.us-west-2.amazonaws.com/stb/index.html
+
+      - name: Submit to Snorkel
+        env:
+          SNORKEL_API_KEY: ${{ secrets.SNORKEL_API_KEY }}
+        run: |
+          FLAG=""
+          if [ "${{ inputs.send_to_reviewer }}" = "false" ]; then
+            FLAG="--no-send-to-reviewer"
+          fi
+
+          if [ -f ".snorkel_config" ]; then
+            stb submissions update . --time ${{ inputs.time }} $FLAG
+          else
+            if [ -z "${{ inputs.project }}" ]; then
+              echo "ERROR: .snorkel_config not found and no project name provided."
+              exit 1
+            fi
+            stb submissions create . --project-name "${{ inputs.project }}" --time ${{ inputs.time }}
+          fi
